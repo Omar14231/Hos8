@@ -1,25 +1,21 @@
 import discord
 from discord.ext import commands
 import os
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from threading import Thread
 
 app = Flask(__name__)
-chat_history = {} # تخزين الرسائل بناءً على ID السيرفر
+chat_history = {} # تخزين الرسائل حسب JobId السيرفر
 
-# مسار HTTP ليقرأ منه سكريبت روبلوكس الرسائل
-@app.route('/get_messages/<job_id>')
+# مسار الفحص المخصص لـ UptimeRobot (يقبل HTTP Head & Get)
+@app.route('/', methods=['GET', 'HEAD'])
+def health_check():
+    return "OK", 200
+
+# مسار استرجاع الرسائل لسكريبت اللعبة
+@app.route('/get_messages/<job_id>', methods=['GET'])
 def get_messages(job_id):
     return jsonify(chat_history.get(job_id, []))
-
-# مسار أساسي لخداع Render ليبقي المشروع يعمل كـ Web Service
-@app.route('/')
-def home():
-    return "Server is running!"
-
-def run_http():
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -33,14 +29,11 @@ async def on_ready():
 
 @bot.event
 async def on_message(message):
-    # التأكد أن الرسالة جاءت من الويب هوك وفي الروم المحددة
     if message.author.bot and message.channel.id == CHANNEL_ID:
         lines = message.content.split('\n')
         if len(lines) >= 2:
             try:
-                # تفكيك صيغة الويب هوك: "الاسم : النص"
                 header = lines[0].split(' : ', 1)
-                # تفكيك: "ID_Map/ID_Server"
                 ids = lines[1].split('/')
                 
                 if len(header) == 2 and len(ids) == 2:
@@ -52,18 +45,20 @@ async def on_message(message):
                     if job_id not in chat_history:
                         chat_history[job_id] = []
                     
-                    # حفظ الرسالة في السجل الأبدي للسيرفر
                     chat_history[job_id].append({
                         "player": player_name,
                         "message": text_msg
                     })
-            except Exception as e:
+            except Exception:
                 pass
                 
     await bot.process_commands(message)
 
-if __name__ == "__main__":
-    Thread(target=run_http).start()
-    # تأكد من وضع DISCORD_TOKEN في إعدادات Environment Variables في Render
-    bot.run(os.environ.get('DISCORD_TOKEN'))
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
 
+if __name__ == "__main__":
+    # تشغيل خادم الويب في خلفية متوازية مع البوت
+    Thread(target=run_flask, daemon=True).start()
+    bot.run(os.environ.get('DISCORD_TOKEN'))
