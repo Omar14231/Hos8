@@ -37,7 +37,7 @@ def ask_gemini(prompt: str) -> str:
     if not gemini_key:
         return "⚠️ لم يتم إعداد GEMINI_API_KEY في متغيّرات البيئة (Render)."
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
     
     system_instruction = (
         "أنت مساعد ذكي ومحترم في سيرفر ديسكورد. وظيفتك الإجابة على أسئلة الأعضاء ومساعدتهم. "
